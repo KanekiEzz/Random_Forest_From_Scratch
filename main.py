@@ -1,4 +1,12 @@
+import os
 import numpy as np
+import math
+from collections import Counter
+
+
+# DEBUG = False
+DEBUG = os.getenv("DEBUG", "0").lower() in ("1", "true", "yes")
+
 
 #       (age < 30)
 #       /        \
@@ -17,7 +25,6 @@ import numpy as np
 #
 # wla kante tree depth dyalha wasel 10 ya3eni atkoun 2047 => 2^(10+1) -1 => 2(d+1−1)
 
-
 class _Tree_Node:
 	def __init__(self, feature=None, threshold=None, left=None, right=None, value=None):
 		self.feature = feature
@@ -25,17 +32,121 @@ class _Tree_Node:
 		self.left = left
 		self.right = right
 		self.value = value
+  
+
+"""
+	Base class for all machine learning models in this implementation.
+	
+	This class defines a common interface for training (fit) and inference (predict),
+	ensuring that all derived models follow a consistent structure.
+	
+	It also provides a built-in logging system controlled by a debug flag,
+	allowing developers to enable or disable colored debug output during development.
+	
+	The logging utility supports multiple levels (debug, info, warning, error),
+	which helps in tracking model behavior during training and debugging complex workflows
+	such as decision tree construction and ensemble learning methods like Random Forest.
+"""
+class BaseModel:
+    RESET = "\033[0m"
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+
+    def __init__(self, debug: bool = DEBUG):
+        self.debug = debug
+
+    def log(self, msg, level="debug"):
+        if not self.debug:
+            return
+
+        if level == "debug":
+            color = self.BLUE
+            tag = "DEBUG"
+        elif level == "info":
+            color = self.GREEN
+            tag = "INFO"
+        elif level == "warn":
+            color = self.YELLOW
+            tag = "WARN"
+        elif level == "error":
+            color = self.RED
+            tag = "ERROR"
+        else:
+            color = self.RESET
+            tag = "LOG"
+
+        print(f"{color}[{tag}] {msg}{self.RESET}")
+
+    def fit(self, X, y):
+        raise NotImplementedError("fit() must be implemented")
+
+    def predict(self, X):
+        raise NotImplementedError("predict() must be implemented")
+
+
+"""
+	convert string to integer 
+"""
+class LabelEncoderSimple(BaseModel):
+	def __init__(self, debug=DEBUG):
+		super().__init__(debug)
+		self.class_to_index = {}
+		self.index_to_class = {}
+
+	def fit(self, y) -> None:
+		unique_classes = sorted(set(y)) # remover dublicate and sorte
+		self.log(f"HI {unique_classes}")
+
+		if (self.debug):# ['cat': 0, 'dog': 1, 'bird', 2]
+			for index, c in enumerate(unique_classes):
+				self.class_to_index[c] = index
+				self.log(f"inex: {index}", "info")
+				self.log(f"c: {c}", "error")
+		else:
+			self.class_to_index = {c: index for index, c in enumerate(unique_classes)}
+	
+		self.log(f"class to index: {self.class_to_index}")
+
+		if (self.debug):# [0: 'cat', 1: 'dog', 2: 'bird']
+			for index, c in self.class_to_index.items():
+				self.index_to_class[c] = index
+				self.log(f"index to class: {self.index_to_class}", "warn")
+		else:
+			self.index_to_class = {i: c for c, i in self.class_to_index.items()}
+
+	def transform(self, y) -> tuple[np.array]:
+		return np.array([self.class_to_index.get(c, -1) for c in y])
+
+	def inverse_transform(self, y_encoded) -> tuple[np.array]:
+		return np.array([self.index_to_class.get(i, None) for i in y_encoded])
 
 
 class Calculate:
-	# def __init__(self):
-	# 	#skip now
+	# def _entropy(self, y):
+	# 	if len(y) == 0:
+	# 		return 0.0
 
-	def _entropy(self, y: np.array) -> float:
+	# 	counts = np.bincount(y)
+	# 	total = len(y)
+	# 	entropy = 0.0
+
+	# 	for count in counts.values():
+	# 		p = count / total
+	# 		if p > 0:
+	# 			entropy -= p * math.log2(p)
+
+	# 	return entropy
+
+	def _entropy(self, y):
 		if len(y) == 0:
-			return 0
+			return 0.0
 		
-		probs = np.bincount(y) / len(y)
+		counts = np.bincount(y)
+		
+		probs = counts / len(y)
+		
 		probs = probs[probs > 0]
 		
 		return -np.sum(probs * np.log2(probs))
@@ -55,6 +166,9 @@ class Calculate:
 	# split (weghited) before Entropy
 	def H_after(self, y_left, y_right):
 		n = len(y_left) + len(y_right)
+
+		if n == 0:
+			return 0.0
 		
 		return (
 					(len(y_left) / n) * self._entropy(y_left) +
@@ -96,8 +210,8 @@ class _Decision_Tree:
 		self.root = None
 
 	def fit(self, X, y) -> None:
+		print(f"training model...\nx:{X}, y:{y}")
 		self.root = self._grow_tree(X, y, depth=0)
-		# print(f"training model...\nx:{X}, y:{y}")
 
 	def predict(self, X) -> None:
 		print("predict")
@@ -159,53 +273,87 @@ class RandomForest:
 		return np.bincount(predictions).argmax()
 
 
+
+# Testing the LabelEncoderSimple
 if __name__ == "__main__":
+	model = BaseModel(debug=DEBUG)
+	# o = ["A", "B", "A", "D", "C"]
+	# l = sorted(set(o))
+	# model.log(f"llll {l}")
 
-    np.random.seed(42)
 
-    # -------------------------
-    # SIMPLE DATASET (toy data)
-    # -------------------------
-    X = np.array([
-        [1, 20],
-        [2, 21],
-        [3, 22],
-        [4, 23],
-        [5, 24],
-        [6, 25],
-        [7, 26],
-        [8, 27]
-    ])
+	
 
-    y = np.array([0, 0, 0, 1, 1, 1, 1, 1])
+	y = ["cat", "dog", "cat", "bird"]
+	encoder = LabelEncoderSimple()
+	encoder.fit(y)
 
-    # -------------------------
-    # CREATE MODEL
-    # -------------------------
-    model = RandomForest(n_trees=5)
+	y_encoded = encoder.transform(y)
+	y_decoder = encoder.inverse_transform(y_encoded)
 
-    # -------------------------
-    # TRAIN
-    # -------------------------
-    print("\n🔥 Training Random Forest...")
-    model.fit(X, y)
+	print(y_decoder)
+	print(y_encoded)
 
-    # -------------------------
-    # TEST DATA
-    # -------------------------
-    X_test = np.array([
-        [1, 20],
-        [5, 24],
-        [8, 27]
-    ])
 
-    # -------------------------
-    # PREDICT
-    # -------------------------
-    print("\n🔮 Predictions...")
-    preds = model.predict(X_test)
+# testing entopy calculation
+# if __name__ == "__main__":
+# 	print("Testing entropy calculation...")
+# 	p = Calculate()
+# 	y = np.array([0, 0, 1, 1, 1])
+# 	print(p._entropy(y))
+ 
+# 	l = Counter(['A', 'B', 'A', 'C', 'B', 'B'])
+# 	print(l)
+	
 
-    print("Final Predictions:", preds)
+
+# if __name__ == "__main__":
+
+#     np.random.seed(42)
+
+#     # -------------------------
+#     # SIMPLE DATASET (toy data)
+#     # -------------------------
+#     X = np.array([
+#         [1, 20],
+#         [2, 21],
+#         [3, 22],
+#         [4, 23],
+#         [5, 24],
+#         [6, 25],
+#         [7, 26],
+#         [8, 27]
+#     ])
+
+#     y = np.array([0, 0, 0, 1, 1, 1, 1, 1])
+
+#     # -------------------------
+#     # CREATE MODEL
+#     # -------------------------
+#     model = RandomForest(n_trees=5)
+
+#     # -------------------------
+#     # TRAIN
+#     # -------------------------
+#     print("\n🔥 Training Random Forest...")
+#     model.fit(X, y)
+
+#     # -------------------------
+#     # TEST DATA
+#     # -------------------------
+#     X_test = np.array([
+#         [1, 20],
+#         [5, 24],
+#         [8, 27]
+#     ])
+
+#     # -------------------------
+#     # PREDICT
+#     # -------------------------
+#     print("\n🔮 Predictions...")
+#     preds = model.predict(X_test)
+
+#     print("Final Predictions:", preds)
 
 	
 
