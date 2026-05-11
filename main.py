@@ -164,7 +164,7 @@ class Calculate(BaseModel):
 	    - Higher entropy:
 	        Classes are mixed together
 	"""
-	def _entropy(self, y: np.array) -> tuple[np.array]:
+	def _entropy(self, y: np.array) -> float:
 		if len(y) == 0:
 			return 0.0
 		
@@ -206,7 +206,7 @@ class Calculate(BaseModel):
 				)
 
 	# IG = H_parent = H_after
-	def _Information_Gain(self, y_parent: np.array, y_left: np.array, y_right: np.array) -> float:
+	def information_gain(self, y_parent: np.array, y_left: np.array, y_right: np.array) -> float:
 		print("how much entropy after use split")
 		return self._entropy(y_parent) - self.H_after(y_left, y_right)
 
@@ -252,13 +252,23 @@ class Calculate(BaseModel):
 	    Result:
 	        1
 	"""
-	def _Majority_class(self, y):
+	def _Majority_class(self, y: np.array) -> int:
 		return np.bincount(y).argmax()
 
 
-class _Decision_Tree:
-	def __init__(self) -> None:
+class _Decision_Tree(BaseModel):
+	def __init__(self,
+		min_samples_split=2,
+		max_depth=100,
+		n_features=None,
+		debug: bool = DEBUG
+	) -> None:
+		super().__init__(debug)
+		self.min_samples_split = min_samples_split
+		self.max_depth = max_depth
+		self.n_features = n_features
 		self.root = None
+		self.calc = Calculate(debug=debug)
 
 	def fit(self, X, y) -> None:
 		print(f"training model...\nx:{X}, y:{y}")
@@ -267,9 +277,49 @@ class _Decision_Tree:
 	def predict(self, X) -> None:
 		print("predict")
 
-	def _grow_tree(self, X, y, depth=0) -> None:
-		print("grow tree")
-		pass
+	def _grow_tree(self, X, y, depth=0):
+	
+		n_samples, n_features = X.shape # size columns(features) and rows(samples)
+
+		n_labels = len(np.unique(y))  # because it tells us if the node is pure (only 1 class) or still needs splitting
+	
+		# stop conditions
+		if (
+			depth >= self.max_depth
+			or n_labels == 1
+			or n_samples < self.min_samples_split
+		):
+			leaf_value = self.calc._Majority_class(y)
+			return _Tree_Node(value=leaf_value)
+	
+		# find best split
+		# best_feature, best_threshold = self._Find_Best_Split(X, y)
+	
+		# if no split found
+		# if best_feature is None:
+		# 	leaf_value = Calculate()._Majority_class(y)
+		# 	return _Tree_Node(value=leaf_value)
+	
+		# # split using numpy masks
+		# left_idxs = X[:, best_feature] <= best_threshold
+		# right_idxs = X[:, best_feature] > best_threshold
+	
+		# X_left = X[left_idxs]
+		# y_left = y[left_idxs]
+	
+		# X_right = X[right_idxs]
+		# y_right = y[right_idxs]
+	
+		# recursive grow
+		# left = self._grow_tree(X_left, y_left, depth + 1)
+		# right = self._grow_tree(X_right, y_right, depth + 1)
+	
+		# return _Tree_Node(
+	 #        feature=best_feature,
+	 #        threshold=best_threshold,
+	 #        left=left,
+	 #        right=right
+	 #    )
 
 	def _Calculate_Entropy(self) -> None:
 		print("calculate grow tree")
@@ -283,8 +333,9 @@ class _Decision_Tree:
 
 
 
-class RandomForest:
-	def __init__(self, n_trees=10):
+class RandomForest(BaseModel):
+	def __init__(self, n_trees=10, debug: bool = DEBUG):
+		super().__init__(debug)
 		self.n_trees = n_trees
 		self.trees = []
 		self.call = Calculate()
@@ -299,7 +350,7 @@ class RandomForest:
 			tree.fit(X_sample, y_sample)
 		
 			self.trees.append(tree)
-		print("training model...")
+			self.log("training model...", "INFO")
 		pass
 
 	def _bootstrap_sample(self, X: np.array, y: np.array):
@@ -364,19 +415,53 @@ if __name__ == "__main__":
 	# calc._entropy(y)
 
 	#test bootstrap_sample
-	x = [1, 25, 3, 40 ,10]
-	y = [2, 22, 33, 6, 9]
+	# x = [1, 25, 3, 40 ,10]
+	# y = [2, 22, 33, 6, 9]
 
-	bootstrap = RandomForest()
+	# bootstrap = RandomForest()
 
-	X_sample, y_sample, X_oob, y_oob = bootstrap._bootstrap_sample(x, y)
-	model.log(f"x: {x}")
-	model.log(f"y: {y}")
-	model.log(f"X_sample: {X_sample}", "info")
-	model.log(f"y_sample: {y_sample}", "info")
-	model.log(f"X_oob: { X_oob,}", "info")
-	model.log(f"y_oob: { y_oob,}", "info")
-		
+	# X_sample, y_sample, X_oob, y_oob = bootstrap._bootstrap_sample(x, y)
+	# model.log(f"x: {x}")
+	# model.log(f"y: {y}")
+	# model.log(f"X_sample: {X_sample}", "info")
+	# model.log(f"y_sample: {y_sample}", "info")
+	# model.log(f"X_oob: { X_oob,}", "info")
+	# model.log(f"y_oob: { y_oob,}", "info")
+
+	# test majority Class
+	# y = [0, 1, 1, 1, 0]
+	# majority = Calculate()
+	# p = majority._Majority_class(y)
+	# model.log(f"P: {p}")
+
+	# model.log(f"this a bage value: {y[p]}")
+
+
+	# test grow tree
+	X = np.array([
+        [1, 20],
+        [2, 21],
+        [3, 22],
+        [4, 23],
+        [5, 24],
+        [6, 25]
+    ])
+
+	y = np.array([0, 0, 0, 1, 1, 1])
+
+	tree = _Decision_Tree()
+
+	tree.fit(X, y)
+
+	print("\nROOT NODE")
+	print("feature:", tree.root.feature)
+	print("threshold:", tree.root.threshold)
+
+	print("\nLEFT NODE")
+	print(tree.root.left.value)
+
+	print("\nRIGHT NODE")
+	print(tree.root.right.value)
 
 
 
