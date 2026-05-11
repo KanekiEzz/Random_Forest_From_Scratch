@@ -1,4 +1,8 @@
+from ensurepip import bootstrap
+from itertools import count
 import os
+from statistics import mode
+from sys import modules
 import numpy as np
 import math
 from collections import Counter
@@ -123,31 +127,57 @@ class LabelEncoderSimple(BaseModel):
 		return np.array([self.index_to_class.get(i, None) for i in y_encoded])
 
 
-class Calculate:
-	# def _entropy(self, y):
-	# 	if len(y) == 0:
-	# 		return 0.0
+class Calculate(BaseModel):
+	def __init__(self, debug: bool = DEBUG):
+		super().__init__(debug)
 
-	# 	counts = np.bincount(y)
-	# 	total = len(y)
-	# 	entropy = 0.0
-
-	# 	for count in counts.values():
-	# 		p = count / total
-	# 		if p > 0:
-	# 			entropy -= p * math.log2(p)
-
-	# 	return entropy
-
-	def _entropy(self, y):
+	"""
+	    Calculate entropy step by step.
+	
+	    Example:
+	        y = [1, 2, 2, 4, 1]
+	
+	    Step 1:
+	        Count how many times each class appears.
+	
+	        class 1 -> 2 times
+	        class 2 -> 2 times
+	        class 4 -> 1 time
+	
+	    Step 2:
+	        Convert counts into probabilities.
+	
+	        P(1) = 2 / 5
+	        P(2) = 2 / 5
+	        P(4) = 1 / 5
+	
+	    Step 3:
+	        Apply entropy formula.
+	
+	        H(Y) = -Σ( p * log2(p) )
+	
+	    Entropy measures how mixed or impure the data is.
+	
+	    - Entropy = 0:
+	        All samples belong to one class (pure node)
+	
+	    - Higher entropy:
+	        Classes are mixed together
+	"""
+	def _entropy(self, y: np.array) -> tuple[np.array]:
 		if len(y) == 0:
 			return 0.0
 		
-		counts = np.bincount(y)
+		counts = np.bincount(y) # convert how much deblicate[1, 1, 2, 2] =\> [0 2 2]
+		self.log(f"y: {y}", "info")
+		self.log(f"counts by use bincount: {counts}")
 		
 		probs = counts / len(y)
+		self.log(f"props: {probs}")
+		
 		
 		probs = probs[probs > 0]
+		self.log(f"probs: {probs}","error")
 		
 		return -np.sum(probs * np.log2(probs))
 
@@ -186,11 +216,13 @@ class Calculate:
 	"""
 	def bootstrap_sample(self, X: np.array, y: np.array) ->  tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		n_samples = X.shape[0]
+		self.log(f"n_samples: {n_samples}")
 		
 		
 		idxs = np.random.choice(n_samples, n_samples, replace=True)
 
 		oob_idxs = np.setdiff1d(np.arange(n_samples), idxs)
+		self.log(f"range: {np.arange(n_samples)}", "error")
 
 		X_sample = X[idxs]
 		y_sample = y[idxs]
@@ -200,7 +232,26 @@ class Calculate:
 
 		return X_sample, y_sample, X_oob, y_oob
 
-
+	"""
+	    Return the most frequent class label in y.
+	
+	    This method is used mainly in Decision Trees when creating
+	    a leaf node. If the algorithm stops splitting the data,
+	    the node predicts the class that appears the most.
+	
+	    Example:
+	        y = [0, 1, 1, 1, 0]
+	
+	        np.bincount(y) -> [2, 3]
+	
+	        class 0 appears 2 times
+	        class 1 appears 3 times
+	
+	        argmax() returns index of largest value -> 1
+	
+	    Result:
+	        1
+	"""
 	def _Majority_class(self, y):
 		return np.bincount(y).argmax()
 
@@ -251,8 +302,8 @@ class RandomForest:
 		print("training model...")
 		pass
 
-	def _bootstrap_sample(self, X, y):
-		return self.call.bootstrap_sample(X, y)
+	def _bootstrap_sample(self, X: np.array, y: np.array):
+		return self.call.bootstrap_sample(np.array(X), np.array(y))
 
 	def predict(self, X):
 		tree_preds = []
@@ -284,15 +335,49 @@ if __name__ == "__main__":
 
 	
 
-	y = ["cat", "dog", "cat", "bird"]
-	encoder = LabelEncoderSimple()
-	encoder.fit(y)
+	# test Label encoder simple
+	# y = ["cat", "dog", "cat", "bird"]
+	# encoder = LabelEncoderSimple()
+	# encoder.fit(y)
+	# y_encoded = encoder.transform(y)
+	# y_decoder = encoder.inverse_transform(y_encoded)
+	# print(y_decoder)
+	# print(y_encoded)
 
-	y_encoded = encoder.transform(y)
-	y_decoder = encoder.inverse_transform(y_encoded)
 
-	print(y_decoder)
-	print(y_encoded)
+	#test bincount
+	# y = [1, 1, 2 ,2]
+	# y = [0,0,1,1]
+	# y = ["cat", "dog", "cat", "bird"]
+	# encoder = LabelEncoderSimple()
+	# encoder.fit(y)
+	# y_encoder = encoder.transform(y)
+	# count = np.bincount(y_encoder)
+	# model.log(f"{count}")
+	# len = len(y)
+	# model.log(f"len: {len}")
+
+
+	# test Calculate entropy
+	# y = [1, 1, 2, 2]
+	# calc = Calculate(y)
+	# calc._entropy(y)
+
+	#test bootstrap_sample
+	x = [1, 25, 3, 40 ,10]
+	y = [2, 22, 33, 6, 9]
+
+	bootstrap = RandomForest()
+
+	X_sample, y_sample, X_oob, y_oob = bootstrap._bootstrap_sample(x, y)
+	model.log(f"x: {x}")
+	model.log(f"y: {y}")
+	model.log(f"X_sample: {X_sample}", "info")
+	model.log(f"y_sample: {y_sample}", "info")
+	model.log(f"X_oob: { X_oob,}", "info")
+	model.log(f"y_oob: { y_oob,}", "info")
+		
+
 
 
 # testing entopy calculation
