@@ -429,39 +429,39 @@ if __name__ == "__main__":
 	# model.log(f"y_oob: { y_oob,}", "info")
 
 	# test majority Class
-	# y = [0, 1, 1, 1, 0]
-	# majority = Calculate()
-	# p = majority._Majority_class(y)
-	# model.log(f"P: {p}")
+	y = [0, 1, 1, 1, 0]
+	majority = Calculate()
+	p = majority._Majority_class(y)
+	model.log(f"P: {p}")
 
-	# model.log(f"this a bage value: {y[p]}")
+	model.log(f"this a bage value: {y[p]}", "error")
 
 
 	# test grow tree
-	X = np.array([
-        [1, 20],
-        [2, 21],
-        [3, 22],
-        [4, 23],
-        [5, 24],
-        [6, 25]
-    ])
+	# X = np.array([
+ #        [1, 20],
+ #        [2, 21],
+ #        [3, 22],
+ #        [4, 23],
+ #        [5, 24],
+ #        [6, 25]
+ #    ])
 
-	y = np.array([0, 0, 0, 1, 1, 1])
+	# y = np.array([0, 0, 0, 1, 1, 1])
 
-	tree = _Decision_Tree()
+	# tree = _Decision_Tree()
 
-	tree.fit(X, y)
+	# tree.fit(X, y)
 
-	print("\nROOT NODE")
-	print("feature:", tree.root.feature)
-	print("threshold:", tree.root.threshold)
+	# print("\nROOT NODE")
+	# print("feature:", tree.root.feature)
+	# print("threshold:", tree.root.threshold)
 
-	print("\nLEFT NODE")
-	print(tree.root.left.value)
+	# print("\nLEFT NODE")
+	# print(tree.root.left.value)
 
-	print("\nRIGHT NODE")
-	print(tree.root.right.value)
+	# print("\nRIGHT NODE")
+	# print(tree.root.right.value)
 
 
 
