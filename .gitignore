@@ -1,3 +1,7 @@
 .zed/
-venv/
-.examples/
+*venv/
+# .examples/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

@@ -1,55 +1,100 @@
 # Random Forest From Scratch
 
-This project implements a Random Forest algorithm from scratch in Python, without using high-level machine learning libraries. It demonstrates the core concepts behind ensemble learning and decision trees.
+A clean, reusable Random Forest classifier implemented from scratch in pure Python.
+
+This refactor keeps only the model code needed for training and prediction:
+- `RandomForestClassifier`
+- `DecisionTreeClassifier`
+- split / entropy / information gain helpers
+
+There is no Titanic-specific logic, no preprocessing pipeline, no CSV export pipeline, and no evaluation layer in the core implementation.
 
 ## Project Structure
 
-- `main.py` — Main script to run the Random Forest implementation.
-- `Data/` — Contains the dataset files:
-  - `train.csv` — Training data (Titanic dataset).
-  - `test.csv` — Test data.
-  - `gender_submission.csv` — Sample submission file.
+```text
+Random_Forest_From_Scratch/
+├── src/
+│   ├── __init__.py
+│   ├── model.py
+│   └── utils.py
+├── test/
+│   ├── sample.csv
+│   ├── simple_test.py
+│   └── test.py
+└── README.md
+```
 
-## Features
-- Custom implementation of Random Forest algorithm
-- Handles CSV data loading and preprocessing
-- Predicts survival on the Titanic dataset
+## Core Usage
 
-## Getting Started
+From the project root, import the classifier like this:
 
-### Prerequisites
-- Python 3.7+
-- (Recommended) Create and activate a virtual environment:
-  ```bash
-  python3 -m venv venv
-  source venv/bin/activate
-  ```
-- Install any required packages (if used):
-  ```bash
-  pip install -r requirements.txt
-  ```
+```python
+from src.model import RandomForestClassifier
 
-### Running the Project
+model = RandomForestClassifier(n_trees=50)
+model.fit(X_train, y_train)
+preds = model.predict(X_test)
+```
 
-1. Place the dataset files in the `Data/` directory.
-2. Run the main script:
-   ```bash
-   python main.py
-   ```
+You can also use the package export:
 
-## Dataset
-This project uses the Titanic dataset from Kaggle. Make sure the following files are in the `Data/` folder:
-- `train.csv`
-- `test.csv`
-- `gender_submission.csv`
+```python
+from src import RandomForestClassifier
+```
 
-## Project Goals
-- Learn and demonstrate how Random Forest works internally
-- Practice implementing machine learning algorithms from scratch
+## Notes
 
-## References
-- [Random Forest (Wikipedia)](https://en.wikipedia.org/wiki/Random_forest)
-- [Titanic: Machine Learning from Disaster (Kaggle)](https://www.kaggle.com/c/titanic)
+- The core model in `src/` expects numeric features.
+- `test/test.py` includes lightweight CSV preparation for convenience:
+  - missing numeric values are filled with the training-column median
+  - categorical values are ordinal-encoded
+- Labels can be numeric or string values.
 
----
-Feel free to modify and extend this project for your own experiments!
+## Example
+
+Run the minimal smoke test from the project root:
+
+```bash
+python3 test/simple_test.py
+```
+
+## Testing With Your Own Data
+
+Drop your dataset into the root `test/` folder.
+
+### Supported patterns
+
+1. **Single CSV file**
+   - `test/test.py` loads the first CSV in `test/`
+   - it treats `target`, `label`, `class`, or `y` as the target column if present
+   - otherwise it uses the last column as the target
+   - it performs a simple train/test split automatically
+
+2. **Prepared files**
+   - put `train.csv` in `test/` or `Data/` with features + target
+   - optionally put `test.csv` in the same folder with matching feature columns
+   - if `test.csv` exists, predictions are generated for that file directly
+
+Run:
+
+```bash
+python3 test/test.py
+```
+
+The script trains the forest and prints predictions.
+
+
+🔥 Core structure (important)
+core/app.py
+App class
+register routes
+core/router.py
+route matching logic
+core/request.py
+request parsing (body, query, headers)
+core/response.py
+response builder
+core/middleware.py
+before/after hooks
+core/exceptions.py
+error handling
