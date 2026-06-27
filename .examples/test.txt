@@ -1,0 +1,23 @@
+4. Validation
+Lawla
+
+Validation 9lila.
+
+Tanya
+
+Katcheck:
+
+X empty
+y empty
+same length
+inconsistent rows
+predict before fit
+invalid parameters
+
+Winner: 🏆 Tanya
+
+
+
+aykhseni nzide candidate_thresholds() 
+
+

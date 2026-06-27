@@ -8,6 +8,20 @@ import math
 from collections import Counter
 
 
+"""
+ 				RandomForest
+					   │
+		┌──────────────┼──────────────┐
+		│              │              │
+		▼              ▼              ▼
+	DecisionTree    DecisionTree   DecisionTree
+	(_Decision_Tree)(_Decision_Tree)(_Decision_Tree)
+		│              │              │
+		▼              ▼              ▼
+	Tree 1         Tree 2         Tree 3
+"""
+
+
 # DEBUG = False
 DEBUG = os.getenv("DEBUG", "0").lower() in ("1", "true", "yes")
 
@@ -213,12 +227,17 @@ class Calculate(BaseModel):
 		Creates a bootstrap sample from X and y using random sampling with replacement,
 		and returns the sampled data along with out-of-bag samples.
 	"""
-	def bootstrap_sample(self, X: np.array, y: np.array) ->  tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+	def bootstrap_sample(self, X: np.array, y: np.array, rng: np.random.Generator) ->  tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		n_samples = X.shape[0]
 		self.log(f"n_samples: {n_samples}")
 		
 		
-		idxs = np.random.choice(n_samples, n_samples, replace=True)
+		# idxs = np.random.choice(n_samples, n_samples, replace=True)
+		idxs = rng.choice(
+			n_samples,
+			size=n_samples,
+   			replace=True
+		)
 
 		oob_idxs = np.setdiff1d(np.arange(n_samples), idxs)
 		self.log(f"range: {np.arange(n_samples)}", "error")
@@ -413,12 +432,14 @@ class _Decision_Tree(BaseModel):
 
 
 class RandomForest(BaseModel):
-	def __init__(self, n_trees=10, max_depth=100, min_samples_split=2, n_features=None, debug: bool = DEBUG):
+	def __init__(self, n_trees=10, max_depth=100, min_samples_split=2, n_features=None, random_state = None, debug: bool = DEBUG):
 		super().__init__(debug)
 		self.n_trees           = n_trees
 		self.max_depth         = max_depth
 		self.min_samples_split = min_samples_split
 		self.n_features        = n_features   # None => sqrt(total_features) decided inside _Decision_Tree
+		self.random_state	   = random_state
+		self.rng = np.random.default_rng(random_state)
 		self.trees             = []
 		self.call              = Calculate()
 		self.encoder           = LabelEncoderSimple(debug=debug)
@@ -455,7 +476,7 @@ class RandomForest(BaseModel):
 			self.log(f"tree {i + 1}/{self.n_trees} trained", "info")
 
 	def _bootstrap_sample(self, X: np.array, y: np.array):
-		return self.call.bootstrap_sample(np.array(X), np.array(y))
+		return self.call.bootstrap_sample(np.array(X), np.array(y), self.rng)
 
 	def predict(self, X):
 		X = np.array(X, dtype=float)
@@ -479,20 +500,9 @@ class RandomForest(BaseModel):
 
 
 
-# Testing the LabelEncoderSimple
-if __name__ == "__main__":
-	model = BaseModel(debug=DEBUG)
 
-	# test majority Class
-	y = [0, 1, 1, 1, 0]
-	majority = Calculate()
-	p = majority._Majority_class(y)
-	model.log(f"P: {p}")
-	model.log(f"this a bage value: {y[p]}", "error")
-
-	np.random.seed(42)
-
-	# ── test with int labels ──────────────────────────────────────────────────
+# ── test with int labels ──────────────────────────────────────────────────
+def test_with_int_labels():
 	print("\n--- Test 1: int labels ---")
 	X_train = np.array([
 		[1, 20], [2, 21], [3, 22], [4, 23],
@@ -508,7 +518,9 @@ if __name__ == "__main__":
 	print("Predictions:", preds)   # expected: [0 1 1]
 	print("Expected:   ", [0, 1, 1])
 
-	# ── test with string labels ───────────────────────────────────────────────
+
+# ── test with string labels ───────────────────────────────────────────────
+def test_with_string_labels():
 	print("\n--- Test 2: string labels ---")
 	X_train2 = np.array([
 		[1, 10], [2, 11], [3, 12],
@@ -522,5 +534,45 @@ if __name__ == "__main__":
 
 	X_test2 = np.array([[2, 11], [8, 21], [5, 31]])
 	preds2  = rf2.predict(X_test2)
-	print("Predictions:", preds2)          # expected: ['cat' 'dog' 'bird']
+	print("Predictions:", preds2) 
 	print("Expected:   ", ["cat", "dog", "bird"])
+
+
+def just_majority_class():
+	# test majority Class
+	y = [0, 1, 1, 1, 0]
+	majority = Calculate()
+	p = majority._Majority_class(y)
+	model.log(f"P: {p}")
+	model.log(f"this a bage value: {y[p]}", "error")
+
+	np.random.seed(42)
+
+
+
+def just_test_DecisionTree():
+	print("\n--- Test 1: Decision_trre ---")
+	X_train = np.array([
+		[1, 20], [2, 21], [3, 22], [4, 23],
+		[5, 24], [6, 25], [7, 26], [8, 27],
+	])
+	y_train = np.array([0, 0, 0, 1, 1, 1, 1, 1])
+
+	rf = _Decision_Tree(max_depth=5)
+	rf.fit(X_train, y_train)
+
+	X_test = np.array([[1, 20], [5, 24], [8, 27]])
+	preds  = rf.predict(X_test)
+	print("Predictions:", preds) 
+	print("Expected:   ", [0, 1, 1])
+
+
+# Testing the LabelEncoderSimple
+if __name__ == "__main__":
+	model = BaseModel(debug=DEBUG)
+
+	just_majority_class()
+	test_with_int_labels()
+	test_with_string_labels()
+	just_test_DecisionTree()
+	
