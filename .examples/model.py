@@ -6,6 +6,8 @@ from sys import modules
 import numpy as np
 import math
 from collections import Counter
+from collections.abc import Hashable, Sequence
+
 
 
 """
@@ -140,8 +142,44 @@ class LabelEncoderSimple(BaseModel):
 	def inverse_transform(self, y_encoded) -> tuple[np.array]:
 		return np.array([self.index_to_class.get(i, None) for i in y_encoded])
 
+class Utils():
+    # def __init__(self, ):
+	@staticmethod
+	def candidate_thresholds(values: np.ndarray, max_thresholds: int = 32) -> np.ndarray:
+		"""
+			Return candidate thresholds between sorted unique values.
+		"""
 
-class Calculate(BaseModel):
+		if max_thresholds < 1:
+			raise ValueError("max_thresholds must be at least 1.")
+
+		unique_values = np.unique(values)
+
+		if unique_values.size < 2:
+			return np.array([], dtype=float)
+
+		# Midpoints between consecutive unique values
+		thresholds = (unique_values[:-1] + unique_values[1:]) / 2.0
+
+		if thresholds.size <= max_thresholds:
+			return thresholds
+
+		if max_thresholds == 1:
+			return np.array([thresholds[thresholds.size // 2]])
+
+		# Evenly sample thresholds
+		indices = np.linspace(
+			0,
+			thresholds.size - 1,
+			max_thresholds,
+			dtype=int,
+		)
+
+		return thresholds[np.unique(indices)]
+
+    
+
+class Calculate(BaseModel, Utils):
 	def __init__(self, debug: bool = DEBUG):
 		super().__init__(debug)
 
@@ -219,9 +257,33 @@ class Calculate(BaseModel):
 					(len(y_right) / n) * self._entropy(y_right)
 				)
 
+	def gini_after(self, y_left: np.ndarray, y_right: np.ndarray) -> float:
+		n = len(y_left) + len(y_right)
+
+		if n == 0:
+			return 0.0
+
+		return (
+			(len(y_left) / n) * self.gini(y_left)
+			+ (len(y_right) / n) * self.gini(y_right)
+		)
+  
+	def gini(self, y):
+		if len(y) == 0:
+			return 0.0
+
+		counts = np.bincount(y)
+		probs = counts / len(y)
+		probs = probs[probs > 0]
+
+		return 1.0 - np.sum(probs ** 2)
+
 	# IG = H_parent = H_after
 	def information_gain(self, y_parent: np.array, y_left: np.array, y_right: np.array) -> float:
 		return self._entropy(y_parent) - self.H_after(y_left, y_right)
+
+	def gini_gain(self, y_parent: np.ndarray, y_left: np.ndarray, y_right: np.ndarray) -> float:
+		return self.gini(y_parent) - self.gini_after(y_left, y_right)
 
 	"""
 		Creates a bootstrap sample from X and y using random sampling with replacement,
@@ -279,6 +341,9 @@ class _Decision_Tree(BaseModel):
 		min_samples_split=2,
 		max_depth=100,
 		n_features=None,
+		rng=None,
+		max_thresholds=32,
+		criterion="entropy",
 		debug: bool = DEBUG
 	) -> None:
 		super().__init__(debug)
@@ -286,6 +351,9 @@ class _Decision_Tree(BaseModel):
 		self.max_depth = max_depth
 		self.n_features = n_features
 		self.root = None
+		self.rng = rng or np.random.default_rng()
+		self.max_thresholds = max_thresholds
+		self.criterion=criterion
 		self.calc = Calculate(debug=debug)
 
 	def fit(self, X, y) -> None:
@@ -406,11 +474,12 @@ class _Decision_Tree(BaseModel):
 		best_threshold = None
 
 		# 1) random subset of feature indices
-		feat_idxs = np.random.choice(X.shape[1], self.n_features, replace=False)
+		feat_idxs = self.rng.choice(X.shape[1], self.n_features, replace=False)
 
 		for feat in feat_idxs:
 			col        = X[:, feat]
-			thresholds = np.unique(col)  # every unique value is a candidate
+			# thresholds = np.unique(col)  # every unique value is a candidate
+			thresholds = self.calc.candidate_thresholds(col, self.max_thresholds)
 
 			for threshold in thresholds:
 				left_mask  = col <= threshold
@@ -419,8 +488,12 @@ class _Decision_Tree(BaseModel):
 				# skip useless splits where one side is empty
 				if left_mask.sum() == 0 or right_mask.sum() == 0:
 					continue
+				
+				if self.criterion == "entropy":
+					gain = self.calc.information_gain(y, y[left_mask], y[right_mask])
+				else:
+					gain = self.calc.gini_gain(y, y[left_mask], y[right_mask])
 
-				gain = self.calc.information_gain(y, y[left_mask], y[right_mask])
 				self.log(f"feat={feat} thr={threshold:.3f} IG={gain:.4f}")
 
 				if gain > best_gain:
@@ -432,18 +505,35 @@ class _Decision_Tree(BaseModel):
 
 
 class RandomForest(BaseModel):
-	def __init__(self, n_trees=10, max_depth=100, min_samples_split=2, n_features=None, random_state = None, debug: bool = DEBUG):
+	"""
+			random_state = 42
+					│
+					▼
+			np.random.default_rng(42)
+					│
+					▼
+				rng
+				/   \
+				/     \
+			bootstrap   feature selection
+	"""
+	def __init__(self, n_trees=10, max_depth=100, min_samples_split=2, n_features=None, random_state = None, criterion="entropy", debug: bool = DEBUG):
 		super().__init__(debug)
 		self.n_trees           = n_trees
 		self.max_depth         = max_depth
 		self.min_samples_split = min_samples_split
 		self.n_features        = n_features   # None => sqrt(total_features) decided inside _Decision_Tree
 		self.random_state	   = random_state
-		self.rng = np.random.default_rng(random_state)
+		self.rng 			   = np.random.default_rng(random_state)
 		self.trees             = []
 		self.call              = Calculate()
+		self.criterion		   = criterion
 		self.encoder           = LabelEncoderSimple(debug=debug)
 		self._needs_encoding   = False        # flipped to True when y contains strings
+		if criterion not in ("entropy", "gini"):
+			raise ValueError(
+				f"Invalid criterion '{criterion}'. Expected 'entropy' or 'gini'."
+			)
 
 	def fit(self, X, y):
 		X = np.array(X, dtype=float)
@@ -468,7 +558,9 @@ class RandomForest(BaseModel):
 				min_samples_split=self.min_samples_split,
 				max_depth=self.max_depth,
 				n_features=self.n_features or max(1, int(np.sqrt(X.shape[1]))),
-				debug=self.debug,
+				criterion=self.criterion,
+    			rng = self.rng,
+    			debug=self.debug, 
 			)
 			tree.fit(X_sample, y_sample)
 		
@@ -510,7 +602,7 @@ def test_with_int_labels():
 	])
 	y_train = np.array([0, 0, 0, 1, 1, 1, 1, 1])
 
-	rf = RandomForest(n_trees=5, max_depth=5)
+	rf = RandomForest(n_trees=5, max_depth=5, random_state=42, criterion="gini")
 	rf.fit(X_train, y_train)
 
 	X_test = np.array([[1, 20], [5, 24], [8, 27]])
@@ -529,13 +621,14 @@ def test_with_string_labels():
 	])
 	y_train2 = ["cat", "cat", "cat", "dog", "dog", "dog", "bird", "bird", "bird"]
 
-	rf2 = RandomForest(n_trees=10, max_depth=5)
+	rf2 = RandomForest(n_trees=100, max_depth=5)
 	rf2.fit(X_train2, y_train2)
 
 	X_test2 = np.array([[2, 11], [8, 21], [5, 31]])
 	preds2  = rf2.predict(X_test2)
 	print("Predictions:", preds2) 
 	print("Expected:   ", ["cat", "dog", "bird"])
+
 
 
 def just_majority_class():
@@ -558,7 +651,7 @@ def just_test_DecisionTree():
 	])
 	y_train = np.array([0, 0, 0, 1, 1, 1, 1, 1])
 
-	rf = _Decision_Tree(max_depth=5)
+	rf = _Decision_Tree(max_depth=100)
 	rf.fit(X_train, y_train)
 
 	X_test = np.array([[1, 20], [5, 24], [8, 27]])
@@ -571,8 +664,11 @@ def just_test_DecisionTree():
 if __name__ == "__main__":
 	model = BaseModel(debug=DEBUG)
 
-	just_majority_class()
-	test_with_int_labels()
-	test_with_string_labels()
+	# just_majority_class()
+	# test_with_int_labels()
+	# test_with_string_labels()
 	just_test_DecisionTree()
-	
+
+
+
+__all__ = ["DecisionTreeClassifier", "RandomForestClassifier"]
