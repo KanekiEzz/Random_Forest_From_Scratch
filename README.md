@@ -1,6 +1,11 @@
+![Decision Forests](/public/hi.gif)
 # Random Forest From Scratch
 
 A clean, educational implementation of a Random Forest classifier in pure Python with support for both numeric and string labels, and configurable split criteria (entropy/Gini).
+
+
+
+![Decision Forests](/public/Random_Forest.gif)
 
 ## Project Structure
 
@@ -261,13 +266,13 @@ jupyter notebook src/test.ipynb
 
 ### Decision Tree
 
-![Decision Tree Architecture](Decision_Tree.png)
+![Decision Tree Architecture](/public/Decision_Tree.png)
 
 Shows the structure of a single decision tree with nodes and splits — each internal node represents a feature/threshold test, leaves represent predicted classes.
 
 ### Random Forest
 
-![Random Forest Architecture](random_forest.png)
+![Random Forest Architecture](/public/random_forest.png)
 
 Illustrates the ensemble approach: multiple decision trees trained on bootstrap samples, combined through majority voting.
 
