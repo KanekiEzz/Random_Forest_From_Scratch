@@ -10,7 +10,8 @@ Random_Forest_From_Scratch/
 │   ├── __init__.py                 # Package exports: RandomForest, _Decision_Tree
 │   ├── model.py                    # Core implementations
 │   ├── test.py                     # Unit tests for components
-│   └── test.ipynb                  # Jupyter notebook (experimental)
+│   └── test.ipynb                  # Demo: trains RandomForest on the Iris dataset,
+│                                    # evaluates with accuracy + confusion matrix heatmap
 ├── test/
 │   ├── simple_test.py              # Minimal working example
 │   ├── test.py                     # CSV data loader and full pipeline
@@ -243,13 +244,20 @@ python3 test/test.py
 
 Loads CSV data from `Data/train.csv` (and `Data/test.csv` if present), or any CSV in `test/`, trains the forest, and prints predictions.
 
+### Iris Dataset Demo (Jupyter Notebook)
+
+`src/test.ipynb` demonstrates the classifier on the classic Iris dataset:
+- Loads Iris via `sklearn.datasets.load_iris()`
+- Splits data (80/20) and standardizes features
+- Trains `RandomForest(n_trees=100, random_state=42)`
+- Evaluates with accuracy score and a confusion matrix heatmap (seaborn)
+
+Open with:
+```bash
+jupyter notebook src/test.ipynb
+```
+
 ## Architecture Diagrams
-
-Two PNG diagrams are included:
-
-- **Decision_Tree.png** - Shows the structure of a single decision tree with nodes and splits
-- **random_forest.png** - Illustrates the ensemble approach with multiple trees and majority voting
-
 
 ### Decision Tree
 
@@ -335,6 +343,7 @@ The `test/test.py` loader is flexible:
 
 The algorithm skips splits that would separate zero samples to one side, preventing invalid trees.
 
+
 ## References & Credits
 
 This is an educational implementation demonstrating core Random Forest concepts:
@@ -342,6 +351,8 @@ This is an educational implementation demonstrating core Random Forest concepts:
 - Random feature subsets for tree diversity
 - Majority voting for ensemble predictions
 - Support for both entropy and Gini criteria
+
+**Inspiration:** This project was inspired by [Random Forests From Scratch](https://carbonati.github.io/posts/random-forests-from-scratch/) by Carbonati, which walks through the core concepts of building a Random Forest without relying on scikit-learn.
 
 ## Notes
 
