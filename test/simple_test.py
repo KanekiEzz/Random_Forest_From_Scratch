@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.model import RandomForestClassifier  # noqa: E402
+from src.model import RandomForest
 
 
 X_train = [
@@ -27,7 +27,7 @@ X_test = [
 ]
 
 
-model = RandomForestClassifier(n_trees=50, random_state=42)
+model = RandomForest(n_trees=50, random_state=42)
 model.fit(X_train, y_train)
 predictions = model.predict(X_test)
 
