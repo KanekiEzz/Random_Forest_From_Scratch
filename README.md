@@ -3,6 +3,9 @@
 
 A clean, educational implementation of a Random Forest classifier in pure Python with support for both numeric and string labels, and configurable split criteria (entropy/Gini).
 
+### Read the full articles:
+- Random Forests from Scratch: https://kanekiezz.vercel.app/posts/random-forests-from-scratch
+- Performance Metrics for Regression & Classification: https://kanekiezz.vercel.app/posts/performance-metrics-regression-classification
 
 
 ![Decision Forests](/public/Random_Forest.gif)
